@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+google-genai
+python-dotenv
+flask
+python-multipart
+pypdf==5.7.0
+numpy<2
+faiss-cpu==1.8.0.post1
+sentence-transformers==3.4.1

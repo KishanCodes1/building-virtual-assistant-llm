@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hybrid Virtual Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="layout">
+    <section class="chat-panel">
+      <header>
+        <div class="eyebrow">HYBRID VIRTUAL ASSISTANT</div>
+        <h1>Your assistant</h1>
+        <p>Ask a question or use a command to save a note, to-do, or reminder.</p>
+      </header>
+
+      {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+      {% if notice %}<div class="notice success">{{ notice }}</div>{% endif %}
+
+      <div class="messages" aria-live="polite">
+        {% for item in messages %}
+          {% if item.role != 'system' %}
+          <article class="message {{ item.role }}">
+            <span class="speaker">{{ 'You' if item.role == 'user' else 'Assistant' }}</span>
+            <p>{{ item.content }}</p>
+          </article>
+          {% endif %}
+        {% else %}
+          <div class="empty">Your conversation will appear here. Try asking “What is artificial intelligence?”</div>
+        {% endfor %}
+      </div>
+
+      <form method="post" class="composer">
+        <label for="message">Message</label>
+        <textarea id="message" name="message" rows="3" maxlength="4000" required
+          placeholder="Type a message…"></textarea>
+        <div class="composer-footer">
+          <span>Commands: <code>todo: task</code> · <code>note: title | content</code> · <code>document: question</code></span>
+          <button type="submit">Send</button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="sidebar">
+      <div class="eyebrow">YOUR TO-DOS</div>
+      <h2>Tasks</h2>
+      {% for todo in todos %}
+        <div class="todo {{ todo.status }}">
+          <span class="status-dot"></span>
+          <div><strong>{{ todo.title }}</strong><small>{{ todo.status }}</small></div>
+        </div>
+      {% else %}
+        <p class="muted">No to-dos saved yet.</p>
+      {% endfor %}
+      <div class="document-section">
+        <div class="eyebrow">DOCUMENTS</div>
+        <h2>PDF sources</h2>
+        <form action="{{ url_for('upload_pdf') }}" method="post" enctype="multipart/form-data" class="upload-form">
+          <input type="file" name="files" accept="application/pdf,.pdf" multiple required aria-label="Choose one or more PDFs">
+          <button type="submit">Upload PDFs</button>
+          <small>Select multiple PDFs together using Command-click or Shift-click. Each file must be 15 MB or smaller.</small>
+        </form>
+        {% for document in documents %}
+          <div class="document-item"><strong>{{ document.filename }}</strong><small>{{ document.chunk_count }} child chunks · {{ document.parent_chunk_count }} parent sections · {{ document.page_count }} pages</small></div>
+        {% else %}
+          <p class="muted">No PDFs indexed yet.</p>
+        {% endfor %}
+      </div>
+      <div class="architecture-note">
+        <strong>Hybrid design</strong>
+        <p>Python handles exact tool actions. Gemini writes general chat replies. PDF questions use BM25 keyword search and FAISS vector search, then send retrieved parent passages to Gemini.</p>
+      </div>
+    </aside>
+  </main>
+</body>
+</html>

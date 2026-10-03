@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+
+# Local user data: keep the SQLite database and FAISS index out of Git.
+data/*.db
+data/*.faiss
+data/*.tmp
+data_backup_*/
+.DS_Store
