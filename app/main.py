@@ -7,7 +7,8 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.database.db import get_connection, initialize_database
-from app.engine.hybrid_engine import classify_intent, run_hybrid_engine
+from app.engine.errors import AssistantError
+from app.engine.hybrid_engine import run_hybrid_engine
 from app.rag.vector_store import split_parent_child, store_documents
 from app.services.response_cache import cache_stats
 
@@ -118,22 +119,19 @@ def chat(request: ChatRequest) -> dict:
         tool = None
         reply = str(error)
         save_trace(cid, route, None, message, reply, "needs_clarification")
+    except AssistantError as error:
+        # Each layer reports its own failure, so the reply names the real stage
+        # instead of guessing from the intent. Detail goes to the terminal only.
+        logger.warning("Chat failed at stage '%s': %s", error.route, error.detail)
+        route, tool = error.route, error.tool
+        reply = error.user_message
+        save_trace(cid, route, tool, message, reply, "error")
     except Exception:
-        logger.exception("Chat request failed before an assistant reply was produced")
-        intent = classify_intent(message)
-        if intent.name == "document_qa":
-            route, tool = "document_error", "parent_child_bm25_faiss_retrieval"
-            reply = "I couldn't search the documents. Check that the RAG packages and model are installed."
-        elif intent.name in ("save_note", "add_todo", "create_reminder"):
-            route, tool = "tool_error", intent.name
-            reply = "I couldn't save that action to SQLite. Check the API terminal for the database error."
-        else:
-            route, tool = "llm_error", "gemini"
-            reply = (
-                "I couldn't get a reply from Gemini. Check that GEMINI_API_KEY is set "
-                "in your local .env file, then restart the server."
-            )
-        save_trace(cid, route, tool, message, "Request failed", "error")
+        logger.exception("Unexpected chat failure")
+        route, tool = "internal_error", None
+        reply = ("Something went wrong inside the assistant. Your saved notes, "
+                 "to-dos and documents are unchanged. Check the API terminal for details.")
+        save_trace(cid, route, None, message, reply, "error")
 
     save_message(cid, "assistant", reply)
     return {"conversation_id": cid, "route": route, "reply": reply}
@@ -244,8 +242,12 @@ async def upload_documents(
 
     try:
         indexed = store_documents(prepared)
-    except Exception as error:
-        raise HTTPException(status_code=500, detail="Could not build the document index: {}".format(error))
+    except Exception:
+        logger.exception("Document index build failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Could not build the document index. Check the API terminal for details.",
+        )
 
     child_count = sum(item["chunks"] for item in indexed)
     parent_count = sum(item["parent_chunks"] for item in indexed)

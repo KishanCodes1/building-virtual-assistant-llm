@@ -1,6 +1,7 @@
 """Coordinate the hybrid rule, tool, RAG, and LLM execution paths."""
 from typing import List, Optional, Tuple
 
+from app.engine.errors import RetrievalError
 from app.engine.intent_classifier import Intent, classify_intent
 from app.engine.output_validator import validate_output, validate_tool_result
 from app.engine.rule_router import rule_router
@@ -48,24 +49,40 @@ def run_hybrid_engine(message: str, history: List[Tuple[str, str]],
         if cached is not None:
             return EngineResult("cache_hit", "sqlite_response_cache", cached,
                                 input_summary="document_qa response cache hit")
-        sources = search_documents(intent.payload)
+        try:
+            sources = search_documents(intent.payload)
+        except Exception as error:
+            raise RetrievalError("search_documents failed: {}".format(error)) from error
+
+        # Retrieval succeeded. Any failure past this point comes from Gemini and
+        # must be reported as a Gemini failure, never as a document-search error.
         if sources:
-            # Search matches child chunks; linked parent passages are injected into
-            # Gemini's prompt so the answer receives useful surrounding context.
-            reply = generate_reply(intent.payload, history, sources=sources)
+            reply = validate_output(
+                route, generate_reply(intent.payload, history, sources=sources)
+            )
+            # Cache only answers that actually cost a Gemini call, and only after
+            # validation, so a rejected reply can never be served from the cache.
+            save_cached_response(
+                conversation_id, "document_qa", intent.payload, history, reply, source_version
+            )
         else:
-            reply = "I could not find an answer to that in the uploaded documents."
-        save_cached_response(
-            conversation_id, "document_qa", intent.payload, history, reply, source_version
-        )
+            reply = validate_output(
+                route, "I could not find an answer to that in the uploaded documents."
+            )
         return EngineResult("document_qa", "parent_child_bm25_faiss_retrieval",
-                            validate_output(route, reply), input_summary=intent.payload)
+                            reply, input_summary=intent.payload)
+
+    if route != "llm":
+        raise ValueError(
+            "I'm not sure what you'd like me to do. Try 'note: title | content', "
+            "'todo: task', 'reminder: title | 2026-10-05T18:00:00+05:30', or "
+            "'document: your question'."
+        )
 
     cached = get_cached_response(conversation_id, "llm_chat", message, history)
     if cached is not None:
         return EngineResult("cache_hit", "sqlite_response_cache", cached,
                             input_summary="llm_chat response cache hit")
-    reply = generate_reply(message, history)
+    reply = validate_output(route, generate_reply(message, history))
     save_cached_response(conversation_id, "llm_chat", message, history, reply)
-    return EngineResult("llm_chat", "gemini", validate_output(route, reply),
-                        input_summary=message)
+    return EngineResult("llm_chat", "gemini", reply, input_summary=message)
