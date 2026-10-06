@@ -8,6 +8,27 @@
 </head>
 <body>
   <main class="layout">
+    <nav class="conversations">
+      <div class="eyebrow">CONVERSATIONS</div>
+      <a class="new-chat" href="{{ url_for('new_chat') }}">+ New Chat</a>
+      <div class="conversation-list">
+        {% for item in conversations %}
+          <a class="conversation{% if item.conversation_id == conversation_id %} active{% endif %}"
+             href="{{ url_for('chat_page', c=item.conversation_id) }}">
+            <strong>{{ item.title }}</strong>
+            {% if item.message_count %}
+              <small>{{ item.message_count }} message{{ '' if item.message_count == 1 else 's' }}
+                     · {{ item.last_activity_at | ist }}</small>
+            {% else %}
+              <small>Not saved until you send a message</small>
+            {% endif %}
+          </a>
+        {% else %}
+          <p class="muted">No conversations yet.</p>
+        {% endfor %}
+      </div>
+    </nav>
+
     <section class="chat-panel">
       <header>
         <div class="eyebrow">HYBRID VIRTUAL ASSISTANT</div>
@@ -32,6 +53,7 @@
       </div>
 
       <form method="post" class="composer">
+        <input type="hidden" name="conversation_id" value="{{ conversation_id }}">
         <label for="message">Message</label>
         <textarea id="message" name="message" rows="3" maxlength="4000" required
           placeholder="Type a message…"></textarea>
@@ -57,15 +79,29 @@
         <div class="eyebrow">DOCUMENTS</div>
         <h2>PDF sources</h2>
         <form action="{{ url_for('upload_pdf') }}" method="post" enctype="multipart/form-data" class="upload-form">
+          <input type="hidden" name="conversation_id" value="{{ conversation_id }}">
           <input type="file" name="files" accept="application/pdf,.pdf" multiple required aria-label="Choose one or more PDFs">
           <button type="submit">Upload PDFs</button>
           <small>Select multiple PDFs together using Command-click or Shift-click. Each file must be 15 MB or smaller.</small>
         </form>
-        {% for document in documents %}
-          <div class="document-item"><strong>{{ document.filename }}</strong><small>{{ document.chunk_count }} child chunks · {{ document.parent_chunk_count }} parent sections · {{ document.page_count }} pages</small></div>
+        {% if documents %}
+          <details class="document-list">
+            <summary class="document-summary">
+              <strong>{{ documents|length }} document{{ '' if documents|length == 1 else 's' }} indexed</strong>
+              <span>{{ documents|sum(attribute='chunk_count') }} chunks</span>
+            </summary>
+            <div class="document-items">
+              {% for document in documents %}
+                <div class="document-item">
+                  <strong title="{{ document.filename }}">{{ document.filename }}</strong>
+                  <small>{{ document.chunk_count }} child · {{ document.parent_chunk_count }} parent · {{ document.page_count }} pages</small>
+                </div>
+              {% endfor %}
+            </div>
+          </details>
         {% else %}
           <p class="muted">No PDFs indexed yet.</p>
-        {% endfor %}
+        {% endif %}
       </div>
       <div class="architecture-note">
         <strong>Hybrid design</strong>
@@ -73,5 +109,11 @@
       </div>
     </aside>
   </main>
+  <script>
+    // The transcript is the only scrolling region, so start it at the newest
+    // message instead of the oldest. No library is used.
+    var transcript = document.querySelector('.messages');
+    if (transcript) { transcript.scrollTop = transcript.scrollHeight; }
+  </script>
 </body>
 </html>

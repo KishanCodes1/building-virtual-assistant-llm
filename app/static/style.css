@@ -1,28 +1,32 @@
 :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1d2939; background: #f3f6fb; }
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; }
-.layout { width: min(1120px, calc(100% - 32px)); margin: 48px auto; display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; align-items: start; }
-.chat-panel, .sidebar { background: #fff; border: 1px solid #e4eaf2; border-radius: 18px; box-shadow: 0 12px 35px #2038580b; }
-.chat-panel { min-height: 78vh; display: flex; flex-direction: column; padding: 32px; }
-header { padding-bottom: 22px; border-bottom: 1px solid #edf0f5; }
+html, body { height: 100%; }
+/* The page itself never scrolls; each panel scrolls its own content instead. */
+body { margin: 0; overflow: hidden; }
+.layout { width: min(1320px, calc(100% - 32px)); height: 100vh; height: 100dvh; margin: 0 auto; padding: 24px 0; display: grid; grid-template-columns: 240px minmax(0, 1fr) 290px; grid-template-rows: minmax(0, 1fr); gap: 20px; }
+.chat-panel, .sidebar, .conversations { background: #fff; border: 1px solid #e4eaf2; border-radius: 18px; box-shadow: 0 12px 35px #2038580b; min-height: 0; }
+.chat-panel { display: flex; flex-direction: column; padding: 32px; overflow: hidden; }
+header { flex: 0 0 auto; padding-bottom: 22px; border-bottom: 1px solid #edf0f5; }
 .eyebrow { color: #5574b9; font-size: 11px; font-weight: 800; letter-spacing: .13em; }
 h1 { margin: 9px 0 5px; font-size: 28px; letter-spacing: -.03em; }
 header p, .muted { color: #748094; margin: 0; font-size: 14px; }
-.messages { flex: 1; padding: 24px 0; display: flex; flex-direction: column; gap: 14px; }
+/* The only vertical scroller in the chat column. min-height:0 is required for
+   overflow to take effect inside a flex column. */
+.messages { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 24px 6px 24px 0; display: flex; flex-direction: column; gap: 14px; }
 .message { max-width: 86%; padding: 13px 16px; border-radius: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .message p { margin: 4px 0 0; }
 .message.user { background: #edf3ff; align-self: flex-end; }
 .message.assistant { background: #f5f6f8; align-self: flex-start; }
 .speaker { font-size: 11px; font-weight: 700; color: #63718a; }
 .empty { margin: auto; color: #8590a1; text-align: center; padding: 30px; }
-.composer { border: 1px solid #dfe5ee; border-radius: 14px; padding: 13px; }
+.composer { flex: 0 0 auto; border: 1px solid #dfe5ee; border-radius: 14px; padding: 13px; }
 .composer label { display: block; font-size: 12px; font-weight: 700; margin: 0 0 8px 2px; }
 textarea { border: 0; outline: 0; resize: vertical; width: 100%; font: inherit; min-height: 64px; color: inherit; }
 .composer-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #8791a0; font-size: 11px; }
 code { color: #4e65a4; }
 button { border: 0; border-radius: 9px; color: white; background: #536fba; padding: 10px 21px; font-weight: 700; cursor: pointer; }
 button:hover { background: #405b9d; }
-.sidebar { padding: 25px 22px; }
+.sidebar { padding: 25px 22px; overflow-y: auto; }
 h2 { margin: 8px 0 18px; font-size: 20px; }
 .todo { display: flex; gap: 10px; padding: 12px 0; border-top: 1px solid #f0f2f6; align-items: flex-start; }
 .todo strong { display: block; font-size: 13px; font-weight: 650; }
@@ -31,14 +35,41 @@ h2 { margin: 8px 0 18px; font-size: 20px; }
 .todo.completed .status-dot { background: #51a583; }
 .architecture-note { margin-top: 28px; padding: 15px; background: #f5f7fc; border-radius: 12px; font-size: 12px; line-height: 1.55; }
 .architecture-note p { color: #66748a; margin: 6px 0 0; }
-.notice { margin: 16px 0 0; background: #fff4e5; color: #85551a; border-radius: 10px; padding: 11px 13px; font-size: 13px; }
-@media (max-width: 760px) { .layout { grid-template-columns: 1fr; margin: 16px auto; } .chat-panel { min-height: 72vh; padding: 22px; } }
+.notice { flex: 0 0 auto; margin: 16px 0 0; background: #fff4e5; color: #85551a; border-radius: 10px; padding: 11px 13px; font-size: 13px; }
+/* Stacked layout: the page scrolls normally again and nothing overflows sideways. */
+@media (max-width: 1100px) {
+  html, body { height: auto; overflow: visible; overflow-x: hidden; }
+  .layout { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; padding: 16px 0; }
+  .chat-panel { min-height: 70vh; padding: 22px; overflow: visible; }
+  .messages { overflow-y: visible; padding-right: 0; }
+  .conversations, .sidebar { overflow: visible; }
+  .conversation-list { max-height: 260px; }
+  .document-items { max-height: none; }
+}
 .success { background: #e8f7ef; color: #286c49; }
 .document-section { margin-top: 26px; padding-top: 20px; border-top: 1px solid #edf0f5; }
 .document-section h2 { margin-bottom: 12px; }
 .upload-form { display: grid; gap: 9px; margin-bottom: 14px; }
 .upload-form input { min-width: 0; max-width: 100%; font-size: 11px; color: #66748a; }
 .upload-form button { justify-self: start; padding: 8px 14px; font-size: 12px; }
-.document-item { border-top: 1px solid #f0f2f6; padding: 10px 0; overflow-wrap: anywhere; }
-.document-item strong { display: block; font-size: 12px; }
-.document-item small { display: block; margin-top: 4px; color: #7d899b; font-size: 11px; }
+.document-summary { display: flex; align-items: baseline; gap: 6px; padding: 10px 12px; background: #f5f7fc; border-radius: 10px; cursor: pointer; list-style: none; }
+.document-summary::-webkit-details-marker { display: none; }
+.document-summary strong { font-size: 12px; }
+.document-summary span { margin-left: auto; color: #7d899b; font-size: 11px; }
+.document-summary::after { content: "▾"; color: #8791a0; font-size: 10px; }
+.document-list[open] .document-summary::after { content: "▴"; }
+.document-items { max-height: 220px; overflow-y: auto; margin-top: 4px; }
+.document-item { border-top: 1px solid #f0f2f6; padding: 9px 2px; }
+/* Long filenames are truncated; the full name is in the title attribute. */
+.document-item strong { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.document-item small { display: block; margin-top: 3px; color: #7d899b; font-size: 11px; }
+.conversations { padding: 25px 18px; display: flex; flex-direction: column; overflow: hidden; }
+/* Eyebrow and New Chat stay fixed; only this list scrolls. */
+.conversation-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding-right: 2px; }
+.new-chat { display: block; margin: 12px 0 10px; padding: 10px 14px; border-radius: 9px; background: #536fba; color: #fff; font-weight: 700; font-size: 13px; text-align: center; text-decoration: none; }
+.new-chat:hover { background: #405b9d; }
+.conversation { display: block; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; color: inherit; text-decoration: none; }
+.conversation:hover { background: #f5f7fc; }
+.conversation.active { background: #edf3ff; border-color: #cfdcf7; }
+.conversation strong { display: block; font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.conversation small { display: block; margin-top: 4px; color: #7d899b; font-size: 11px; }
