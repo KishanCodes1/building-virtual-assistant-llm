@@ -184,6 +184,44 @@ def list_reminders() -> list:
         return [dict(row) for row in db.execute("SELECT * FROM reminders ORDER BY remind_at")]
 
 
+def _derive_title(first_user_message: Optional[str], conversation_id: str,
+                  limit: int = 45) -> str:
+    """Build a readable conversation title from its first user message."""
+    text = " ".join((first_user_message or "").split())
+    if not text:
+        return conversation_id
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
+@app.get("/conversations")
+def list_conversations() -> list:
+    """Derive the conversation list from the messages table.
+
+    There is no conversations table: the title comes from the first user message
+    and the timestamps come from the message rows themselves, so no schema
+    change is needed to list conversations.
+    """
+    with get_connection() as db:
+        rows = db.execute(
+            """SELECT m.conversation_id,
+                      COUNT(*) AS message_count,
+                      MIN(m.created_at) AS started_at,
+                      MAX(m.created_at) AS last_activity_at,
+                      (SELECT content FROM messages
+                        WHERE conversation_id = m.conversation_id AND role = 'user'
+                        ORDER BY id LIMIT 1) AS first_user_message
+               FROM messages m
+               GROUP BY m.conversation_id
+               ORDER BY MAX(m.id) DESC"""
+        ).fetchall()
+    conversations = []
+    for row in rows:
+        item = dict(row)
+        item["title"] = _derive_title(item.pop("first_user_message"), item["conversation_id"])
+        conversations.append(item)
+    return conversations
+
+
 @app.get("/conversations/{conversation_id}/messages")
 def conversation_history(conversation_id: str) -> list:
     with get_connection() as db:
